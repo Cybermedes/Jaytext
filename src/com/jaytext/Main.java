@@ -1,12 +1,44 @@
 package com.jaytext;
 
 import com.sun.jna.Library;
+import com.sun.jna.Native;
 import com.sun.jna.Structure;
 
+import java.io.IOException;
 import java.util.Arrays;
 
 @SuppressWarnings("SpellCheckingInspection")
+public class Main {
+
+    public static void main(String[] args) throws IOException {
+
+        LibC.Termios termios = new LibC.Termios();
+        int rc = LibC.INSTANCE.tcgetattr(LibC.SYSTEM_OUT_FD, termios);
+
+        if (rc != 0) {
+            System.out.println("there was problem with tcgetattr");
+            System.exit(rc);
+        }
+
+        System.out.println("termios = " + termios);
+
+        while (true) {
+            int key = System.in.read();
+            System.out.println((char) key + " (" + key + ")");
+        }
+    }
+}
+
+@SuppressWarnings("SpellCheckingInspection")
 interface LibC extends Library {
+
+    int SYSTEM_OUT_FD = 0;
+    int ISIG = 1, ICANON = 2, ECHO = 10, TCSAFLUSH = 2,
+            IXON = 2000, ICRNL = 400, IEXTEN = 100000, OPOST = 1,
+            VMIN = 6, VTIME = 5, TIOCGWINSZ = 0x5413;
+
+    // loading the C standard library for POSIX systems
+    LibC INSTANCE = Native.load("c", LibC.class);
 
     int tcgetattr(int fd, Termios termios);
 
@@ -43,12 +75,5 @@ interface LibC extends Library {
                     ", c_cc=" + Arrays.toString(c_cc) +
                     '}';
         }
-    }
-}
-
-public class Main {
-
-    public static void main(String[] args) {
-
     }
 }
