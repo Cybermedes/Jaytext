@@ -12,6 +12,19 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
 
+        enableRawMode();
+
+        while (true) {
+            int key = System.in.read();
+            if (key == 'q') {
+                System.exit(0);
+            }
+            System.out.println((char) key + " (" + key + ")");
+
+        }
+    }
+
+    private static void enableRawMode() {
         LibC.Termios termios = new LibC.Termios();
         int rc = LibC.INSTANCE.tcgetattr(LibC.SYSTEM_OUT_FD, termios);
 
@@ -20,12 +33,14 @@ public class Main {
             System.exit(rc);
         }
 
-        System.out.println("termios = " + termios);
+        termios.c_lflag &= ~(LibC.ECHO | LibC.ICANON | LibC.IEXTEN | LibC.ISIG);
+        termios.c_iflag &= ~(LibC.IXON | LibC.ICRNL);
+        termios.c_oflag &= ~(LibC.OPOST);
 
-        while (true) {
-            int key = System.in.read();
-            System.out.println((char) key + " (" + key + ")");
-        }
+        termios.c_cc[LibC.VMIN] = 0;
+        termios.c_cc[LibC.VTIME] = 1;
+
+        LibC.INSTANCE.tcsetattr(LibC.SYSTEM_OUT_FD, LibC.TCSAFLUSH, termios);
     }
 }
 
