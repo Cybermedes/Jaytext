@@ -11,11 +11,15 @@ import java.util.Arrays;
 public class Main {
 
     private static LibC.Termios originalAttributes;
+    private static int rows, columns;
 
     public static void main(String[] args) throws IOException {
 
         enableRawMode();
+        initTextEditor();
+
         while (true) {
+            refreshScreen();
             int key = getKey();
             handleKey(key);
         }
@@ -33,6 +37,32 @@ public class Main {
         return System.in.read();
     }
 
+    private static void refreshScreen() {
+        StringBuilder builder = new StringBuilder();
+
+        builder.append("\033[2J");
+        builder.append("\033[H");
+
+        for (int i = 0; i < rows - 1; i++) {
+            builder.append("~\r\n");
+        }
+
+        String statusMessage = "\uD83D\uDCD5 JAYTEXT - v0.0.1 - alpha";
+        builder.append("\033[7m")
+                .append(statusMessage)
+                .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
+                .append("\033[0m");
+
+        builder.append("\033[H");
+        System.out.print(builder);
+    }
+
+    private static void initTextEditor() {
+        LibC.Winsize winsize = getWindowSize();
+        rows = winsize.ws_row;
+        columns = winsize.ws_col;
+    }
+
     private static void enableRawMode() {
         LibC.Termios termios = new LibC.Termios();
         int rc = LibC.INSTANCE.tcgetattr(LibC.SYSTEM_OUT_FD, termios);
@@ -48,10 +78,21 @@ public class Main {
         termios.c_iflag &= ~(LibC.IXON | LibC.ICRNL);
         termios.c_oflag &= ~(LibC.OPOST);
 
-        termios.c_cc[LibC.VMIN] = 0;
-        termios.c_cc[LibC.VTIME] = 1;
+        /*termios.c_cc[LibC.VMIN] = 0;
+        termios.c_cc[LibC.VTIME] = 1;*/
 
         LibC.INSTANCE.tcsetattr(LibC.SYSTEM_OUT_FD, LibC.TCSAFLUSH, termios);
+    }
+
+    private static LibC.Winsize getWindowSize() {
+        final LibC.Winsize winsize = new LibC.Winsize();
+        final int rc = LibC.INSTANCE.ioctl(LibC.SYSTEM_OUT_FD, LibC.TIOCGWINSZ, winsize);
+
+        if (rc != 0) {
+            System.err.println("ioctl failed with return code[={}]" + rc);
+            System.exit(1);
+        }
+        return winsize;
     }
 }
 
@@ -69,6 +110,13 @@ interface LibC extends Library {
     int tcgetattr(int fd, Termios termios);
 
     int tcsetattr(int fd, int optional_actions, Termios termios);
+
+    int ioctl(int fd, int opt, Winsize winsize);
+
+    @Structure.FieldOrder(value = {"ws_row", "ws_col", "ws_xpixel", "ws_ypixel"})
+    class Winsize extends Structure {
+        public short ws_row, ws_col, ws_xpixel, ws_ypixel;
+    }
 
     @Structure.FieldOrder(value = {"c_iflag", "c_oflag", "c_cflag", "c_lflag", "c_cc"})
     class Termios extends Structure {
