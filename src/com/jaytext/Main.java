@@ -10,18 +10,27 @@ import java.util.Arrays;
 @SuppressWarnings("SpellCheckingInspection")
 public class Main {
 
+    private static LibC.Termios originalAttributes;
+
     public static void main(String[] args) throws IOException {
 
         enableRawMode();
-
         while (true) {
-            int key = System.in.read();
-            if (key == 'q') {
-                System.exit(0);
-            }
-            System.out.println((char) key + " (" + key + ")");
-
+            int key = getKey();
+            handleKey(key);
         }
+    }
+
+    private static void handleKey(int key) {
+        if (key == 'q') {
+            LibC.INSTANCE.tcsetattr(LibC.SYSTEM_OUT_FD, LibC.TCSAFLUSH, originalAttributes);
+            System.exit(0);
+        }
+        System.out.print((char) key + " (" + key + ")\r\n");
+    }
+
+    private static int getKey() throws IOException {
+        return System.in.read();
     }
 
     private static void enableRawMode() {
@@ -32,6 +41,8 @@ public class Main {
             System.out.println("there was problem with tcgetattr");
             System.exit(rc);
         }
+
+        originalAttributes = LibC.Termios.of(termios);
 
         termios.c_lflag &= ~(LibC.ECHO | LibC.ICANON | LibC.IEXTEN | LibC.ISIG);
         termios.c_iflag &= ~(LibC.IXON | LibC.ICRNL);
