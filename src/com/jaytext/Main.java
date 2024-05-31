@@ -154,13 +154,33 @@ public class Main {
 
     private static void refreshScreen() {
         StringBuilder builder = new StringBuilder();
+        moveCaretToTopLeft(builder);
+        displayFileContent(builder);
+        displayBottomStatusBar(builder);
+        refreshCaretPosition(builder);
+        System.out.print(builder);
+    }
 
-        // Clears the whole screen
-//        builder.append("\033[2J");
+    private static void moveCaretToTopLeft(StringBuilder builder) {
         // Moves the caret to top-left corner
         builder.append("\033[H");
+    }
 
-        for (int i = 0; i < rows - 1; i++) {
+    private static void refreshCaretPosition(StringBuilder builder) {
+        // Update the caret position after pressing an arrow key
+        builder.append(String.format("\033[%d;%dH", cursorY + 1, cursorX + 1));
+    }
+
+    private static void displayBottomStatusBar(StringBuilder builder) {
+        String statusMessage = "\uD83D\uDCD5 JAYTEXT - v0.0.1 - alpha";
+        builder.append("\033[7m")
+                .append(statusMessage)
+                .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
+                .append("\033[0m");
+    }
+
+    private static void displayFileContent(StringBuilder builder) {
+        for (int i = 0; i < rows; i++) {
             if (i >= content.size()) {
                 builder.append("~");
             } else {
@@ -169,21 +189,11 @@ public class Main {
             // Erase in the line content that were previously written
             builder.append("\033[K\r\n");
         }
-
-        String statusMessage = "\uD83D\uDCD5 JAYTEXT - v0.0.1 - alpha";
-        builder.append("\033[7m")
-                .append(statusMessage)
-                .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
-                .append("\033[0m");
-
-        // Update the caret position after pressing an arrow key
-        builder.append(String.format("\033[%d;%dH", cursorY + 1, cursorX + 1));
-        System.out.print(builder);
     }
 
     private static void initTextEditor() {
         LibC.Winsize winsize = getWindowSize();
-        rows = winsize.ws_row;
+        rows = winsize.ws_row - 1;
         columns = winsize.ws_col;
     }
 
