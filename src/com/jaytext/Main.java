@@ -5,8 +5,11 @@ import com.sun.jna.Native;
 import com.sun.jna.Structure;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class Main {
@@ -23,8 +26,11 @@ public class Main {
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
     private static int cursorX = 0, cursorY = 0;
+    private static List<String> content = List.of();
 
     public static void main(String[] args) throws IOException {
+
+        openFile(args);
 
         enableRawMode();
         initTextEditor();
@@ -33,6 +39,20 @@ public class Main {
             refreshScreen();
             int key = getKey();
             handleKey(key);
+        }
+    }
+
+    private static void openFile(String[] args) {
+        if (args.length == 1) {
+            String fileName = args[0];
+            Path filePath = Path.of(fileName);
+            if (Files.exists(filePath)) {
+                try (Stream<String> stringStream = Files.lines(filePath)) {
+                    content = stringStream.toList();
+                } catch (IOException e) {
+                    // TODO add custom message
+                }
+            }
         }
     }
 
@@ -136,12 +156,18 @@ public class Main {
         StringBuilder builder = new StringBuilder();
 
         // Clears the whole screen
-        builder.append("\033[2J");
+//        builder.append("\033[2J");
         // Moves the caret to top-left corner
         builder.append("\033[H");
 
         for (int i = 0; i < rows - 1; i++) {
-            builder.append("~\r\n");
+            if (i >= content.size()) {
+                builder.append("~");
+            } else {
+                builder.append(content.get(i));
+            }
+            // Erase in the line content that were previously written
+            builder.append("\033[K\r\n");
         }
 
         String statusMessage = "\uD83D\uDCD5 JAYTEXT - v0.0.1 - alpha";
