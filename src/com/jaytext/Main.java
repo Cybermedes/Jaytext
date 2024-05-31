@@ -6,6 +6,7 @@ import com.sun.jna.Structure;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class Main {
@@ -21,6 +22,7 @@ public class Main {
             DEL = 1008;
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
+    private static int cursorX = 0, cursorY = 0;
 
     public static void main(String[] args) throws IOException {
 
@@ -36,10 +38,44 @@ public class Main {
 
     private static void handleKey(int key) {
         if (key == 'q') {
-            LibC.INSTANCE.tcsetattr(LibC.SYSTEM_OUT_FD, LibC.TCSAFLUSH, originalAttributes);
-            System.exit(0);
-        } else {
-            System.out.print((char) key + " (" + key + ")\r\n");
+            exit();
+        } else if (List.of(ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END).contains(key)){
+            moveCursor(key);
+//            System.out.print((char) key + " (" + key + ")\r\n");
+        }
+    }
+
+    private static void exit() {
+        System.out.println("\033[2J");
+        System.out.println("\033[H");
+        LibC.INSTANCE.tcsetattr(LibC.SYSTEM_OUT_FD, LibC.TCSAFLUSH, originalAttributes);
+        System.exit(0);
+    }
+
+    private static void moveCursor(int key) {
+        switch (key) {
+            case ARROW_UP -> {
+                if (cursorY > 0) {
+                    cursorY--;
+                }
+            }
+            case ARROW_DOWN -> {
+                if (cursorY < rows - 1) {
+                    cursorY++;
+                }
+            }
+            case ARROW_LEFT -> {
+                if (cursorX > 0) {
+                    cursorX--;
+                }
+            }
+            case ARROW_RIGHT -> {
+                if (cursorX < columns - 1) {
+                    cursorX++;
+                }
+            }
+            case HOME -> cursorX = 0;
+            case END -> cursorX = columns - 1;
         }
     }
 
@@ -99,7 +135,9 @@ public class Main {
     private static void refreshScreen() {
         StringBuilder builder = new StringBuilder();
 
+        // Clears the whole screen
         builder.append("\033[2J");
+        // Moves the caret to top-left corner
         builder.append("\033[H");
 
         for (int i = 0; i < rows - 1; i++) {
@@ -112,7 +150,8 @@ public class Main {
                 .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
                 .append("\033[0m");
 
-        builder.append("\033[H");
+        // Update the caret position after pressing an arrow key
+        builder.append(String.format("\033[%d;%dH", cursorY + 1, cursorX + 1));
         System.out.print(builder);
     }
 
