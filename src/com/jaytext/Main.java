@@ -10,6 +10,15 @@ import java.util.Arrays;
 @SuppressWarnings("SpellCheckingInspection")
 public class Main {
 
+    private final static int ARROW_UP = 1000,
+            ARROW_DOWN = 1001,
+            ARROW_RIGHT = 1002,
+            ARROW_LEFT = 1003,
+            HOME = 1004,
+            END = 1005,
+            PAGE_UP = 1006,
+            PAGE_DOWN = 1007,
+            DEL = 1008;
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
 
@@ -29,12 +38,62 @@ public class Main {
         if (key == 'q') {
             LibC.INSTANCE.tcsetattr(LibC.SYSTEM_OUT_FD, LibC.TCSAFLUSH, originalAttributes);
             System.exit(0);
+        } else {
+            System.out.print((char) key + " (" + key + ")\r\n");
         }
-        System.out.print((char) key + " (" + key + ")\r\n");
     }
 
     private static int getKey() throws IOException {
-        return System.in.read();
+        int key = System.in.read();
+        if (key != '\033') {
+            return key;
+        }
+
+        int nextKey = System.in.read();
+        if (nextKey != '[' && nextKey != 'O') {
+            return nextKey;
+        }
+
+        int anotherKey = System.in.read();
+        if (nextKey == '[') {
+            return switch (anotherKey) {
+                case 'A' -> ARROW_UP;
+                case 'B' -> ARROW_DOWN;
+                case 'C' -> ARROW_RIGHT;
+                case 'D' -> ARROW_LEFT;
+                case 'H' -> HOME;
+                case 'F' -> END;
+                case '0','1','2','3','4','5','6','7','8','9' -> {
+                    int secondAnotherKey = System.in.read();
+                    if (secondAnotherKey != '~') {
+                        yield secondAnotherKey;
+                    }
+                    switch (anotherKey) {
+                        case '1':
+                        case '7':
+                            yield HOME;
+                        case '3':
+                            yield DEL;
+                        case '4':
+                        case '8':
+                            yield END;
+                        case '5':
+                            yield PAGE_UP;
+                        case '6':
+                            yield PAGE_DOWN;
+                        default:
+                            yield anotherKey;
+                    }
+                }
+                default -> anotherKey;
+            };
+        } else {
+            return switch (anotherKey) {
+                case 'H' -> HOME;
+                case 'F' -> END;
+                default -> anotherKey;
+            };
+        }
     }
 
     private static void refreshScreen() {
