@@ -25,20 +25,28 @@ public class Main {
             DEL = 1008;
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
-    private static int cursorX = 0, cursorY = 0;
+    private static int cursorX = 0, cursorY = 0, offsetY = 0;
     private static List<String> content = List.of();
 
     public static void main(String[] args) throws IOException {
 
         openFile(args);
-
         enableRawMode();
         initTextEditor();
 
         while (true) {
+            scrollPage();
             refreshScreen();
             int key = getKey();
             handleKey(key);
+        }
+    }
+
+    private static void scrollPage() {
+        if (cursorY >= rows + offsetY) {
+            offsetY = cursorY - rows + 1;
+        } else if (cursorY < offsetY) {
+            offsetY = cursorY;
         }
     }
 
@@ -80,7 +88,7 @@ public class Main {
                 }
             }
             case ARROW_DOWN -> {
-                if (cursorY < rows - 1) {
+                if (cursorY < content.size()) {
                     cursorY++;
                 }
             }
@@ -168,7 +176,7 @@ public class Main {
 
     private static void refreshCaretPosition(StringBuilder builder) {
         // Update the caret position after pressing an arrow key
-        builder.append(String.format("\033[%d;%dH", cursorY + 1, cursorX + 1));
+        builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX + 1));
     }
 
     private static void displayBottomStatusBar(StringBuilder builder) {
@@ -181,10 +189,12 @@ public class Main {
 
     private static void displayFileContent(StringBuilder builder) {
         for (int i = 0; i < rows; i++) {
-            if (i >= content.size()) {
+            int fileI = offsetY + i;
+
+            if (fileI >= content.size()) {
                 builder.append("~");
             } else {
-                builder.append(content.get(i));
+                builder.append(content.get(fileI));
             }
             // Erase in the line content that were previously written
             builder.append("\033[K\r\n");
