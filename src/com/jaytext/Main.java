@@ -25,7 +25,7 @@ public class Main {
             DEL = 1008;
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
-    private static int cursorX = 0, cursorY = 0, offsetY = 0;
+    private static int cursorX = 0, cursorY = 0, offsetY = 0, offsetX = 0;
     private static List<String> content = List.of();
 
     public static void main(String[] args) throws IOException {
@@ -47,6 +47,12 @@ public class Main {
             offsetY = cursorY - rows + 1;
         } else if (cursorY < offsetY) {
             offsetY = cursorY;
+        }
+
+        if (cursorX >= columns + offsetX) {
+            offsetX = cursorX - columns + 1;
+        } else if (cursorX < offsetX) {
+            offsetX = cursorX;
         }
     }
 
@@ -98,18 +104,16 @@ public class Main {
                 }
             }
             case ARROW_RIGHT -> {
-                if (cursorX < columns - 1) {
+                if (cursorX < content.get(cursorY).length() - 1) {
                     cursorX++;
                 }
             }
             case PAGE_UP, PAGE_DOWN -> {
-
                 if (key == PAGE_UP) {
                     moveCursorTopOfScreen();
-                } else if (key == PAGE_DOWN) {
+                } else {
                     moveCursorToBottomScreen();
                 }
-
                 for (int i = 0; i < rows; i++) {
                     moveCursor(key == PAGE_UP ? ARROW_UP : ARROW_DOWN);
                 }
@@ -199,7 +203,7 @@ public class Main {
 
     private static void refreshCaretPosition(StringBuilder builder) {
         // Update the caret position after pressing an arrow key
-        builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX + 1));
+        builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX - offsetX + 1));
     }
 
     private static void displayBottomStatusBar(StringBuilder builder) {
@@ -217,7 +221,18 @@ public class Main {
             if (fileI >= content.size()) {
                 builder.append("~");
             } else {
-                builder.append(content.get(fileI));
+                String line = content.get(fileI);
+
+                int lengthToDraw = line.length() - offsetX;
+                if (lengthToDraw < 0) {
+                    lengthToDraw = 0;
+                }
+                if (lengthToDraw > columns) {
+                    lengthToDraw = columns;
+                }
+                if (lengthToDraw > 0) {
+                    builder.append(line, offsetX, offsetX + lengthToDraw);
+                }
             }
             // Erase in the line content that were previously written
             builder.append("\033[K\r\n");
