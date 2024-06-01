@@ -104,7 +104,7 @@ public class Main {
                 }
             }
             case ARROW_RIGHT -> {
-                if (cursorX < content.get(cursorY).length() - 1) {
+                if (cursorX < content.get(cursorY).length()) {
                     cursorX++;
                 }
             }
@@ -119,7 +119,7 @@ public class Main {
                 }
             }
             case HOME -> cursorX = 0;
-            case END -> cursorX = columns - 1;
+            case END -> cursorX = content.get(cursorY).length();
         }
     }
 
