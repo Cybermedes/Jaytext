@@ -23,6 +23,7 @@ public class Main {
             PAGE_UP = 1006,
             PAGE_DOWN = 1007,
             DEL = 1008;
+    private static final int BACKSPACE = 127;
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
     private static int cursorX = 0, cursorY = 0, offsetY = 0, offsetX = 0;
@@ -35,7 +36,6 @@ public class Main {
         initTextEditor();
 
         while (true) {
-            scrollPage();
             refreshScreen();
             int key = getKey();
             handleKey(key);
@@ -71,11 +71,47 @@ public class Main {
     }
 
     private static void handleKey(int key) {
-        if (key == 'q') {
+        if (key == control('q')) {
             exit();
+        } else if (key == control('f')) {
+            editorFind();
         } else if (List.of(ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END, PAGE_UP, PAGE_DOWN).contains(key)){
             moveCursor(key);
         }
+    }
+
+    private static void editorFind() {
+        prompt("Search %s (Use ESC/Arrows/Enter)");
+    }
+
+    private static void prompt(String message) {
+        StringBuilder userInput = new StringBuilder();
+
+        while (true) {
+            try {
+                setStatusMessage(!userInput.isEmpty() ? userInput.toString() : message);
+                refreshScreen();
+                int key = getKey();
+
+                if (key == '\033' || key == '\r') {
+                    setStatusMessage(null);
+                    return;
+                } else if (key == DEL || key == BACKSPACE || key == control('h')) {
+                    if (!userInput.isEmpty()) {
+                        userInput.deleteCharAt(userInput.length() - 1);
+                    }
+                } else if (!Character.isISOControl(key) && key < 128) {
+                    userInput.append((char) key);
+                }
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static int control(char key) {
+        return key & 0x1f;
     }
 
     private static void exit() {
@@ -200,6 +236,7 @@ public class Main {
     }
 
     private static void refreshScreen() {
+        scrollPage();
         StringBuilder builder = new StringBuilder();
         moveCaretToTopLeft(builder);
         displayFileContent(builder);
@@ -218,12 +255,17 @@ public class Main {
         builder.append(String.format("\033[%d;%dH", cursorY - offsetY + 1, cursorX - offsetX + 1));
     }
 
+    private static String statusMessage;
     private static void displayBottomStatusBar(StringBuilder builder) {
-        String statusMessage = "\uD83D\uDCD5 JAYTEXT - v0.0.1 - alpha";
+        String message = statusMessage != null ? statusMessage : "\uD83D\uDCD5 JAYTEXT - v0.0.1 - alpha";
         builder.append("\033[7m")
-                .append(statusMessage)
-                .append(" ".repeat(Math.max(0, columns - statusMessage.length())))
+                .append(message)
+                .append(" ".repeat(Math.max(0, columns - message.length())))
                 .append("\033[0m");
+    }
+
+    public static void setStatusMessage(String statusMessage) {
+        Main.statusMessage = statusMessage;
     }
 
     private static void displayFileContent(StringBuilder builder) {
