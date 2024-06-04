@@ -75,7 +75,6 @@ public class Main {
             exit();
         } else if (List.of(ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END, PAGE_UP, PAGE_DOWN).contains(key)){
             moveCursor(key);
-//            System.out.print((char) key + " (" + key + ")\r\n");
         }
     }
 
@@ -87,6 +86,7 @@ public class Main {
     }
 
     private static void moveCursor(int key) {
+        String line = currentLine();
         switch (key) {
             case ARROW_UP -> {
                 if (cursorY > 0) {
@@ -104,7 +104,7 @@ public class Main {
                 }
             }
             case ARROW_RIGHT -> {
-                if (cursorX < content.get(cursorY).length()) {
+                if (line != null && cursorX < line.length()) {
                     cursorX++;
                 }
             }
@@ -119,8 +119,20 @@ public class Main {
                 }
             }
             case HOME -> cursorX = 0;
-            case END -> cursorX = content.get(cursorY).length();
+            case END -> {
+                if (line != null) {
+                    cursorX = line.length();
+                }
+            }
         }
+        String newLine = currentLine();
+        if (newLine != null && cursorX > newLine.length()) {
+            cursorX = newLine.length();
+        }
+    }
+
+    private static String currentLine() {
+        return cursorY < content.size() ? content.get(cursorY) : null;
     }
 
     private static void moveCursorTopOfScreen() {
