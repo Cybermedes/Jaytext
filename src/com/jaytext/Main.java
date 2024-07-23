@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
 @SuppressWarnings("SpellCheckingInspection")
@@ -80,11 +81,56 @@ public class Main {
         }
     }
 
-    private static void editorFind() {
-        prompt("Search %s (Use ESC/Arrows/Enter)");
+    enum SearchDirection {
+        FORWARDS, BACKWARDS
     }
 
-    private static void prompt(String message) {
+    static SearchDirection searchDirection = SearchDirection.FORWARDS;
+    static int lastMatch = -1;
+
+    private static void editorFind() {
+        prompt("Search %s (Use ESC/Arrows/Enter)", (query, lastKeyPressed) -> {
+
+            if (query == null || query.isBlank()) {
+                searchDirection = SearchDirection.FORWARDS;
+                lastMatch = -1;
+                return;
+            }
+
+            if (lastKeyPressed == ARROW_LEFT || lastKeyPressed == ARROW_UP) {
+                searchDirection = SearchDirection.BACKWARDS;
+            } else if (lastKeyPressed == ARROW_RIGHT || lastKeyPressed == ARROW_DOWN) {
+                searchDirection = SearchDirection.FORWARDS;
+            } else {
+                searchDirection = SearchDirection.FORWARDS;
+                lastMatch = -1;
+            }
+
+            int currentIndex = lastMatch;
+            for (int i = 0; i < content.size(); i++) {
+
+                currentIndex += searchDirection == SearchDirection.FORWARDS ? 1 : -1;
+
+                if (currentIndex == content.size()) {
+                    currentIndex = 0;
+                } else if (currentIndex == -1) {
+                    currentIndex = content.size() - 1;
+                }
+
+                String currentLine = content.get(currentIndex);
+                int match = currentLine.indexOf(query);
+                if (match != -1) {
+                    lastMatch = currentIndex;
+                    cursorY = currentIndex;
+                    cursorX = match; // not 100% functional
+                    offsetY = content.size();
+                    break;
+                }
+            }
+        });
+    }
+
+    private static void prompt(String message, BiConsumer<String, Integer> consumer) {
         StringBuilder userInput = new StringBuilder();
 
         while (true) {
@@ -103,6 +149,8 @@ public class Main {
                 } else if (!Character.isISOControl(key) && key < 128) {
                     userInput.append((char) key);
                 }
+
+                consumer.accept(userInput.toString(), key);
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
