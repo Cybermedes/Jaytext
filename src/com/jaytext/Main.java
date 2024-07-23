@@ -7,9 +7,11 @@ import com.sun.jna.Structure;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @SuppressWarnings("SpellCheckingInspection")
@@ -28,7 +30,8 @@ public class Main {
     private static LibC.Termios originalAttributes;
     private static int rows, columns;
     private static int cursorX = 0, cursorY = 0, offsetY = 0, offsetX = 0;
-    private static List<String> content = List.of();
+    private static List<String> content = new ArrayList<>();
+    private static Path currentFile;
 
     public static void main(String[] args) throws IOException {
 
@@ -63,22 +66,106 @@ public class Main {
             Path filePath = Path.of(fileName);
             if (Files.exists(filePath)) {
                 try (Stream<String> stringStream = Files.lines(filePath)) {
-                    content = stringStream.toList();
+                    content = stringStream.collect(Collectors.toCollection(ArrayList::new));
                 } catch (IOException e) {
                     // TODO add custom message
                 }
             }
+            currentFile = filePath;
         }
     }
 
     private static void handleKey(int key) {
         if (key == control('q')) {
             exit();
+        } else if (key == '\r') {
+            handleEnter();
+        } else if (key == control('s')) {
+            editorSave();
         } else if (key == control('f')) {
             editorFind();
-        } else if (List.of(ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END, PAGE_UP, PAGE_DOWN).contains(key)){
+        } else if (List.of(ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, HOME, END, PAGE_UP, PAGE_DOWN).contains(key)) {
             moveCursor(key);
+        } else if(List.of(DEL, BACKSPACE, control('h')).contains(key)) {
+            deleteChar();
+        } else {
+            insertChar((char) key);
         }
+    }
+
+    private static void editorSave() {
+        try {
+            Files.write(currentFile, content);
+            setStatusMessage("File has been saved");
+        } catch (IOException e) {
+            setStatusMessage("File not saved: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static void deleteChar() {
+        if (cursorX == 0 && cursorY == 0) return;
+        if (cursorY == content.size()) return;
+        if (cursorX > 0) {
+            deleteCharFromRow(cursorY, cursorX - 1);
+            cursorX--;
+        } else {
+            cursorX = content.get(cursorY - 1).length();
+            appendStringToRow(cursorY -1,content.get(cursorY));
+            deleteRow(cursorY);
+            cursorY--;
+        }
+    }
+
+    private static void deleteRow(int at) {
+        if (at < 0 || at >= content.size()) return;
+        content.remove(at);
+    }
+
+    private static void appendStringToRow(int at, String append) {
+        content.set(at, content.get(at) + append);
+    }
+
+    private static void deleteCharFromRow(int row, int at) {
+        String line = content.get(row);
+        if (at < 0 || at > line.length()) return;
+        String editedLine = new StringBuilder(line).deleteCharAt(at).toString();
+        content.set(row, editedLine);
+
+    }
+
+    private static void handleEnter() {
+        if (cursorX == 0) {
+            insertRowAt(cursorY, "");
+        } else {
+            String line = content.get(cursorY);
+            insertRowAt(cursorY + 1, line.substring(cursorX));
+            content.set(cursorY, line.substring(0, cursorX));
+        }
+        cursorY++;
+        cursorX = 0;
+    }
+
+    private static void insertChar(char key) {
+
+        if (cursorY == content.size()) {
+            insertRowAt(cursorY, "");
+        }
+
+        insertCharInRow(cursorY, cursorX, key);
+        cursorX++;
+    }
+
+    private static void insertRowAt(int at, String rowContent) {
+        if (at < 0 || at > content.size()) return;
+        content.add(at, rowContent);
+    }
+
+    private static void insertCharInRow(int row, int at, char key) {
+        String line = content.get(row);
+        if (at < 0 || at > line.length()) at = line.length();
+        String editedLine = new StringBuilder(line).insert(at, key).toString();
+        content.set(row, editedLine);
     }
 
     enum SearchDirection {
